@@ -23,24 +23,25 @@
 (reg-event-db
   ::init
   (fn [db [_ did tree opts]]
-    (assoc db did (new-drawing tree opts))))
+    (assoc-in db [:nursery did] (new-drawing tree opts))))
 
 (reg-event-fx
   ::measure
   (fn [{:keys [db]} [_ did node-id dimensions]]
-    (let [drawing-prime (record-dimensions (get db did) node-id dimensions)
-          db-prime      (assoc db did drawing-prime)]
+    (let [drawing-prime (record-dimensions (get-in db [:nursery did]) node-id dimensions)
+          db-prime      (assoc-in db [:nursery did] drawing-prime)]
       (if (ready-for-layout? drawing-prime)
         {:db db-prime :dispatch [::layout did]}
         {:db db-prime}))))
 
 (reg-event-db
   ::layout
-  (fn [db [_ did]] (update db did layout-drawing)))
+  (fn [db [_ did]] (assoc db did (layout-drawing (get-in db [:nursery did])))))
 
 ;; ---- subscriptions ----------------------------------------------
 
 (reg-sub ::drawing (fn [db [_ did]] (get db did)))
+(reg-sub ::nursery (fn [db [_ did]] (get-in db [:nursery did])))
 
 ;; --- rendering -----------------------------------------------------
 
@@ -112,8 +113,7 @@
   [did
    {:keys [width height]
     :as drawing}]
-  [:div {:class-name "tidy-tree"
-         :style {:position "relative"
+  [:div {:style {:position "relative"
                  :overflow "hidden"
                  :width     width
                  :height    height}}
@@ -123,7 +123,8 @@
 (defn tidy-tree
   [tree opts]
   (let [did     (rand-keyword)
-        drawing (subscribe [::drawing did])]
+        drawing (subscribe [::drawing did])
+        nursery (subscribe [::nursery did])]
     (dispatch [::init did tree opts])
     (reagent/create-class
       {:component-will-update
@@ -132,4 +133,9 @@
            (dispatch (into [::init did] (rest new-argv)))))
        :reagent-render
        (fn [_ _]
-         (when-let [dw @drawing] [draw-tree did dw]))})))
+         [:div.tidy-tree
+          (when-let [dw @drawing] [draw-tree did dw])
+          (when-let [new-dw @nursery] [:div {:style {:position "absolute"
+                                                     :width    0
+                                                     :height   0}}
+                                       [draw-tree did new-dw]])])})))
