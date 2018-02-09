@@ -81,7 +81,7 @@
    (doall
      (for [[id node-edges] edges]
        ^{:key id}
-       [(condp = (:edges opts)
+       [(condp = (:edge-style opts)
           :straight straight-edges
           :diagonal diagonal-edges
           straight-edges) node-edges]))])
