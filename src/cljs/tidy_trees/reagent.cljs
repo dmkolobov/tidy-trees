@@ -51,8 +51,28 @@
             :x1 x1 :y1 y1
             :x2 x2 :y2 y2}]))
 
+(defn diagonal-edges
+  [node-edges]
+  [:g
+   (map (fn [edge] ^{:key edge} [draw-diagonal edge])
+        node-edges)])
+
+(defn straight-edges
+  [node-edges]
+  (let [[[x y] _] (first node-edges)
+        min-x     (apply min (map (comp first last) node-edges))
+        max-x     (apply max (map (comp first last) node-edges))
+        min-y     (apply min (map (comp last last) node-edges))
+        my        (+ y (/ (- min-y y) 2))]
+    [:g
+     [draw-diagonal [[x y]      [x my]]]
+     [draw-diagonal [[min-x my] [max-x my]]]
+     (for [[_ [x :as child]] node-edges]
+       ^{:key child}
+       [draw-diagonal [[x my] child]])]))
+
 (defn draw-edges
-  [_ {:keys [edges width height]}]
+  [_ {:keys [edges width height opts]}]
   [:svg {:style {:position "absolute"}
          :width    width
          :height   height
@@ -60,9 +80,10 @@
    (doall
      (for [[id node-edges] edges]
        ^{:key id}
-       [:g
-        (map (fn [edge] ^{:key edge} [draw-diagonal edge])
-             node-edges)]))])
+       [(condp = (:edges opts)
+          :straight straight-edges
+          :diagonal diagonal-edges
+          straight-edges) node-edges]))])
 
 (defn draw-node
   [did {:keys [id]}]
@@ -91,7 +112,8 @@
   [did
    {:keys [width height]
     :as drawing}]
-  [:div {:style {:position "relative"
+  [:div {:class-name "tidy-tree"
+         :style {:position "relative"
                  :overflow "hidden"
                  :width     width
                  :height    height}}
