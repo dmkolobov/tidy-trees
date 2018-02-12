@@ -2,7 +2,7 @@
   (:require [clojure.zip :as zip :refer [edit root]]
             [tidy-trees.zip :refer [ff rw edit-walk reduce-walk node-seq]]
             [tidy-trees.contour :refer [top bound-tree find-overlap nudge min-contour max-contour]]
-            [tidy-trees.util :refer [rand-keyword floor ceil]]))
+            [tidy-trees.util :refer [rand-keyword]]))
 
 (defrecord LayoutNode
   [id label x y width height min-c max-c children delta shift])
@@ -90,8 +90,8 @@
   to its children."
   [{:keys [id delta shift] :as node} slots depths]
   (-> node
-      (assoc :x (floor delta))
-      (assoc :y (floor (slots (get depths id))))
+      (assoc :x delta)
+      (assoc :y (slots (get depths id)))
       (update :children
               (fn [children]
                 (map #(update % :delta + delta (- shift))
@@ -120,20 +120,6 @@
 (defn tree->nodes [tree] (node-seq (zipper tree)))
 
 ;; ---- public api ----
-
-(defn child-anchor
-  [{:keys [x y width height]}]
-  [(+ x (/ width 2)) (+ y height)])
-
-(defn parent-anchor
-  [{:keys [x y width]}]
-  [(+ x (/ width 2)) y])
-
-(defn diagonal-edges
-  [node]
-  (when-let [children (seq (:children node))]
-    (map (fn [child] [(child-anchor node) (parent-anchor child)])
-         children)))
 
 (defrecord Drawing [tree nodes opts measures width height edges])
 
@@ -173,7 +159,6 @@
     (assoc drawing
       :tree   tree-prime
       :nodes  nodes
-      :edges  (zipmap (map :id nodes) (map diagonal-edges nodes))
       :width  (- (apply max (:max-c tree-prime))
                  (apply min (:min-c tree-prime)))
       :height (last slots))))
